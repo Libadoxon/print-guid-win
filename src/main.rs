@@ -4,21 +4,24 @@ use std::fmt::Display;
 use std::{env::consts::OS, process::exit};
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     SetupDiEnumDeviceInfo, SetupDiGetClassDevsA, SetupDiGetDeviceRegistryPropertyA,
-    DIGCF_ALLCLASSES, DIGCF_PRESENT, HDEVINFO, SPDRP_FRIENDLYNAME, SP_DEVINFO_DATA,
+    DIGCF_ALLCLASSES, DIGCF_PRESENT, HDEVINFO, SPDRP_DEVICEDESC, SPDRP_FRIENDLYNAME,
+    SP_DEVINFO_DATA,
 };
 
 struct WinDev {
     fname: Option<String>,
+    desc: Option<String>,
     guid: u128,
 }
 
 impl Display for WinDev {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let fname = self.fname.clone().unwrap_or("Unkown".to_string());
+        let desc = self.desc.clone().unwrap_or("None".to_string());
         write!(
             f,
-            "---------------------------\nDev Name: {}\nGUID: {}\nGUID (hex): {:#x}\n---------------------------",
-            fname, self.guid, self.guid
+            "---------------------------\nDev Name: {}\nDev Desc: {}\nGUID: {}\nGUID (hex): {:#x}\n---------------------------",
+            fname, desc, self.guid, self.guid
         )
     }
 }
@@ -51,6 +54,36 @@ fn get_fname(
     }
     let friendly_name = String::from_utf8_lossy(&buffer).to_string();
     Ok(Some(friendly_name))
+}
+
+fn get_desc(
+    dev_info_set: HDEVINFO,
+    dev_info_data: *const SP_DEVINFO_DATA,
+) -> Result<Option<String>> {
+    let mut buffer: Vec<u8> = vec![0; 256];
+    let mut required_size: u32 = 0;
+
+    unsafe {
+        // when no desc return None
+        if SetupDiGetDeviceRegistryPropertyA(
+            dev_info_set,
+            dev_info_data,
+            SPDRP_DEVICEDESC,
+            None,
+            Some(&mut buffer),
+            Some(&mut required_size),
+        )
+        .is_err()
+        {
+            return Ok(None);
+        }
+    }
+
+    if let Some(null_pos) = buffer.iter().position(|&b| b == 0) {
+        buffer.truncate(null_pos); // Remove trailing nulls
+    }
+    let desc = String::from_utf8_lossy(&buffer).to_string();
+    Ok(Some(desc))
 }
 
 fn main() -> Result<()> {
@@ -93,6 +126,7 @@ fn main() -> Result<()> {
 
         let dev = WinDev {
             fname: get_fname(dev_info_set, &dev_info_data)?,
+            desc: get_desc(dev_info_set, &dev_info_data)?,
             guid: dev_info_data.ClassGuid.to_u128(),
         };
 
