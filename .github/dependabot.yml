@@ -1,0 +1,22 @@
+version: 2
+
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      timezone: Etc/UTC
+    labels:
+      - "deps"
+      - "automated"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      timezone: Etc/UTC
+    labels:
+      - "deps"
+      - "automated"
+    open-pull-requests-limit: 10
