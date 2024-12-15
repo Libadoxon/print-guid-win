@@ -1,5 +1,5 @@
 {
-  description = "";
+  description = "Print the name and GUID of each device on Windows";
 
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
@@ -38,11 +38,17 @@
       in
       rec {
         devShell = pkgs.mkShell {
-          nativeBuildInputs = [ toolchain ];
+          nativeBuildInputs = [ toolchain pkgs.pkgsCross.mingwW64.stdenv.cc
+            pkgs.pkgsCross.mingwW64.windows.pthreads ];
+
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER =
+            let
+              inherit (pkgs.pkgsCross.mingwW64.stdenv) cc;
+            in
+            "${cc}/bin/${cc.targetPrefix}cc";
         };
 
         defaultPackage = packages.print-guid;
-
         packages.print-guid = naersk'.buildPackage {
           src = ./.;
           strictDeps = true;
@@ -52,9 +58,11 @@
             pkgsCross.mingwW64.windows.pthreads
           ];
 
-          # Tells Cargo that we're building for Windows.
-          # (https://doc.rust-lang.org/cargo/reference/config.html#buildtarget)
-          CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER =
+            let
+              inherit (pkgs.pkgsCross.mingwW64.stdenv) cc;
+            in
+            "${cc}/bin/${cc.targetPrefix}cc";
         };
       }
     );
