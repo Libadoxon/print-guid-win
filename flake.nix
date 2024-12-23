@@ -38,7 +38,11 @@
       in
       rec {
         devShell = pkgs.mkShell {
-          nativeBuildInputs = [ toolchain ];
+          nativeBuildInputs = [
+            toolchain
+            pkgs.pkgsCross.mingwW64.stdenv.cc
+            pkgs.pkgsCross.mingwW64.windows.pthreads
+          ];
         };
 
         defaultPackage = packages.print-guid;
@@ -51,10 +55,6 @@
             pkgsCross.mingwW64.stdenv.cc
             pkgsCross.mingwW64.windows.pthreads
           ];
-
-          # Tells Cargo that we're building for Windows.
-          # (https://doc.rust-lang.org/cargo/reference/config.html#buildtarget)
-          CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
         };
       }
     );
