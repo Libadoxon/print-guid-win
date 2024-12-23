@@ -37,7 +37,7 @@
         };
       in
       rec {
-        devShell = pkgs.mkShell {
+        devShells.default = pkgs.mkShell {
           nativeBuildInputs = [
             toolchain
             pkgs.pkgsCross.mingwW64.stdenv.cc
