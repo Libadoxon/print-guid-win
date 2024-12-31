@@ -1,12 +1,20 @@
 use anyhow::Result;
-use is_root::is_root;
 use std::fmt::Display;
+use std::mem;
+use std::os::raw::c_void;
 use std::{env::consts::OS, process::exit};
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     SetupDiEnumDeviceInfo, SetupDiGetClassDevsA, SetupDiGetDeviceRegistryPropertyA,
     DIGCF_ALLCLASSES, DIGCF_PRESENT, HDEVINFO, SPDRP_DEVICEDESC, SPDRP_FRIENDLYNAME,
     SP_DEVINFO_DATA,
 };
+use windows::Win32::Foundation::CloseHandle;
+use windows::Win32::Foundation::INVALID_HANDLE_VALUE;
+use windows::Win32::Security::GetTokenInformation;
+use windows::Win32::Security::TokenElevation;
+use windows::Win32::Security::TOKEN_ELEVATION;
+use windows::Win32::Security::TOKEN_QUERY;
+use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
 struct WinDev {
     fname: Option<String>,
@@ -86,13 +94,41 @@ fn get_desc(
     Ok(Some(desc))
 }
 
+// This code snippet is derived from "is-root" by "John Meow"
+// Original repository: https://gitlab.com/caralice/is-root
+fn is_root() -> Result<bool> {
+    let mut token = INVALID_HANDLE_VALUE;
+    let mut elevated = false;
+    unsafe {
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).is_ok() {
+            let mut elevation: TOKEN_ELEVATION = mem::zeroed();
+            let mut size = mem::size_of::<TOKEN_ELEVATION>().try_into().unwrap();
+            if GetTokenInformation(
+                token,
+                TokenElevation,
+                Some(&mut elevation as *mut TOKEN_ELEVATION as *mut c_void),
+                size,
+                &mut size,
+            )
+            .is_ok()
+            {
+                elevated = elevation.TokenIsElevated != 0;
+            }
+        }
+        if token != INVALID_HANDLE_VALUE {
+            CloseHandle(token)?;
+        }
+    }
+    Ok(elevated)
+}
+
 fn main() -> Result<()> {
     if OS != "windows" {
         println!("OS isn't windows!");
         exit(1);
     }
 
-    if !is_root() {
+    if !is_root()? {
         println!("This program needs root priviledges");
         exit(1);
     }
